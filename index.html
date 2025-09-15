@@ -707,10 +707,14 @@
                             <span id="videoFile">CS2 수정 버전</span>
                         </div>
                         <div class="video-player-container">
-                            <video id="replayVideo" controls width="100%" height="300">
-                                <source src="" type="video/mp4">
-                                Your browser does not support the video tag.
-                            </video>
+                            <iframe id="replayVideo" 
+                                    width="100%" 
+                                    height="400" 
+                                    src="https://www.youtube.com/embed/CM8Hw_vpCsQ?autoplay=0&controls=1&showinfo=0&rel=0" 
+                                    frameborder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowfullscreen>
+                            </iframe>
                         </div>
                         <div class="tick-navigation">
                             <button id="prevSuspiciousTick" class="nav-btn">⬅️ 이전 의심 구간</button>
@@ -1445,37 +1449,10 @@
             // 의심스러운 tick 생성
             generateSuspiciousTicks();
             
-            // 영상 소스 설정 (YouTube 영상 사용)
-            const video = document.getElementById('replayVideo');
-            video.src = `https://youtu.be/CM8Hw_vpCsQ`;
+            // YouTube iframe은 이미 HTML에 설정되어 있음
+            console.log('YouTube 영상 로드 완료');
             
-            // 영상 로드 이벤트 추가
-            video.addEventListener('loadedmetadata', () => {
-                console.log('영상 로드 완료:', video.duration, '초');
-                // 영상이 로드되면 첫 번째 의심 구간으로 이동
-                if (suspiciousTicks.length > 0) {
-                    goToTick(0);
-                }
-            });
-            
-            // 영상 로드 오류 처리
-            video.addEventListener('error', (e) => {
-                console.error('영상 로드 오류:', e);
-                // 오류 시 기본 메시지 표시
-                const videoContainer = document.querySelector('.video-player-container');
-                videoContainer.innerHTML = `
-                    <div style="display: flex; align-items: center; justify-content: center; height: 300px; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; color: #64748b;">
-                        <div style="text-align: center;">
-                            <div style="font-size: 2rem; margin-bottom: 8px;">📹</div>
-                            <div>영상을 로드할 수 없습니다</div>
-                            <div style="font-size: 0.875rem; margin-top: 4px;">YouTube 영상: Counter-Strike2_수정.mp4</div>
-                            <div style="font-size: 0.75rem; margin-top: 4px; color: #94a3b8;">영상 로드 실패 - 네트워크 문제일 수 있습니다</div>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            // 이벤트 리스너 설정
+            // 이벤트 리스너 설정 (iframe에서는 제한적)
             setupVideoEventListeners();
             
             // 의심 구간 목록 업데이트
