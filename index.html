@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FPS 에임핵 의심 유저 프로파일링 대시보드</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+            color: #1a202c;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+            padding-top: 32px;
+        }
+
+        .header {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 40px 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+            border: 1px solid #e2e8f0;
+        }
+
+        .header h1 {
+            color: #1a202c;
+            font-size: 2.25rem;
+            margin-bottom: 12px;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            line-height: 1.2;
+        }
+
+        .header p {
+            color: #64748b;
+            font-size: 1rem;
+            font-weight: 400;
+        }
+
+        .user-selector {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+            border: 1px solid #e2e8f0;
+        }
+
+        .user-selector h2 {
+            color: #1a202c;
+            margin-bottom: 20px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: -0.025em;
+        }
+
+        .user-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 16px;
+        }
+
+        .user-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .user-card:hover {
+            transform: translateY(-2px);
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+        }
+
+        .user-card.selected {
+            background: #3b82f6;
+            color: white;
+            border-color: #2563eb;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+        }
+
+        .user-card.suspicious {
+            background: #fef2f2;
+            border-color: #fecaca;
+        }
+
+        .user-card.suspicious:hover {
+            border-color: #ef4444;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+        }
+
+        .user-card.normal {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+
+        .user-card.normal:hover {
+            border-color: #22c55e;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);
+        }
+
+        .user-card.selected.suspicious {
+            background: #ef4444;
+            border-color: #dc2626;
+        }
+
+        .user-card.selected.normal {
+            background: #22c55e;
+            border-color: #16a34a;
+        }
+
+        .user-id {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            letter-spacing: -0.025em;
+        }
+
+        .user-status {
+            font-size: 0.875rem;
+            opacity: 0.8;
+            font-weight: 500;
+        }
+
+        .user-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .user-card:hover::before,
+        .user-card.selected::before {
+            opacity: 1;
+        }
+
+        .dashboard-content {
+            display: none;
+        }
+
+        .dashboard-content.active {
+            display: block;
+        }
+
+        .panel {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+            border: 1px solid #e2e8f0;
+        }
+
+        .panel h2 {
+            color: #1a202c;
+            margin-bottom: 20px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: -0.025em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel h2::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 2px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .info-item {
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+        }
+
+        .info-item:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+
+        .info-label {
+            font-weight: 500;
+            color: #64748b;
+            margin-bottom: 4px;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .info-value {
+            color: #1a202c;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .chart-container {
+            height: 400px;
+            margin: 20px 0;
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .chart-container:last-child {
+            height: 300px;
+        }
+
+        .suspicion-gauge {
+            text-align: center;
+            margin: 24px 0;
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .gauge {
+            width: 180px;
+            height: 180px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .gauge-circle {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(
+                #ef4444 0deg 90deg,
+                #f59e0b 90deg 180deg,
+                #eab308 180deg 270deg,
+                #22c55e 270deg 360deg
+            );
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .gauge-inner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 80%;
+            background: #ffffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1a202c;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .suspicion-level {
+            margin-top: 16px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1rem;
+            display: inline-block;
+            min-width: 120px;
+        }
+
+        .suspicion-level.low {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        .suspicion-level.medium {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+
+        .suspicion-level.high {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
+        .info-value.high {
+            color: #dc2626;
+            font-weight: 600;
+        }
+
+        .info-value.medium {
+            color: #d97706;
+            font-weight: 600;
+        }
+
+        .info-value.low {
+            color: #16a34a;
+            font-weight: 600;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-color: #cbd5e1;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+        }
+
+        .stat-value {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #1a202c;
+            margin-bottom: 4px;
+            letter-spacing: -0.025em;
+        }
+
+        .stat-label {
+            color: #64748b;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 48px;
+            color: #64748b;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .loading::before {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e2e8f0;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .video-section {
+            margin-top: 24px;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 24px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .video-section h3 {
+            color: #1a202c;
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .video-section h3::before {
+            content: '';
+            width: 3px;
+            height: 16px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 2px;
+        }
+
+        .video-info {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 16px;
+            background: #ffffff;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .video-info span {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #64748b;
+        }
+
+        .video-info span:first-child {
+            color: #3b82f6;
+            font-weight: 600;
+        }
+
+        .video-info span:last-child {
+            color: #8b5cf6;
+            font-weight: 500;
+            font-size: 0.8rem;
+        }
+
+        .video-player-container {
+            margin-bottom: 16px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .video-player-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .video-player-container video {
+            width: 100%;
+            height: 400px;
+            object-fit: contain;
+            background: #000;
+            border-radius: 8px;
+        }
+
+        .tick-navigation {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .nav-btn, .play-btn {
+            padding: 10px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #1a202c;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .nav-btn:hover, .play-btn:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            transform: translateY(-1px);
+        }
+
+        .play-btn {
+            background: #3b82f6;
+            color: white;
+            border-color: #2563eb;
+        }
+
+        .play-btn:hover {
+            background: #2563eb;
+        }
+
+        .suspicious-ticks-list h4 {
+            color: #1a202c;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .ticks-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: #ffffff;
+        }
+
+        .tick-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tick-item:hover {
+            background: #f8fafc;
+        }
+
+        .tick-item:last-child {
+            border-bottom: none;
+        }
+
+        .tick-item.active {
+            background: #dbeafe;
+            border-left: 3px solid #3b82f6;
+        }
+
+        .tick-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .tick-number {
+            font-weight: 600;
+            color: #1a202c;
+            font-size: 0.875rem;
+        }
+
+        .tick-time {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .tick-suspicion {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .tick-suspicion.high {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .tick-suspicion.medium {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .tick-suspicion.low {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+            
+            .header {
+                padding: 32px 24px;
+            }
+            
+            .header h1 {
+                font-size: 1.875rem;
+                line-height: 1.3;
+            }
+            
+            .user-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 12px;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 12px;
+            }
+
+            .chart-container {
+                height: 300px;
+                padding: 12px;
+            }
+
+            .gauge {
+                width: 150px;
+                height: 150px;
+            }
+
+            .video-info {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .tick-navigation {
+                flex-direction: column;
+            }
+
+            .video-player-container {
+                max-width: 100%;
+            }
+
+            .video-player-container video {
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 FPS 에임핵 의심 유저 프로파일링 대시보드</h1>
+            <p>AI 기반 조준 패턴 분석을 통한 치트 탐지 시스템</p>
+        </div>
+
+        <div class="user-selector">
+            <h2>👥 유저 선택</h2>
+            <div class="user-grid" id="userGrid">
+                <div class="loading">데이터를 로딩 중입니다...</div>
+            </div>
+        </div>
+
+        <div class="dashboard-content" id="dashboardContent">
+            <!-- 유저 기본 정보 패널 -->
+            <div class="panel">
+                <h2>📊 유저 기본 정보</h2>
+                <div class="info-grid" id="userInfo">
+                    <!-- 동적으로 생성됨 -->
+                </div>
+            </div>
+
+            <!-- 일반 FPS 통계 지표 -->
+            <div class="panel">
+                <h2>📈 FPS 통계 지표</h2>
+                <div class="stats-grid" id="fpsStats">
+                    <!-- 동적으로 생성됨 -->
+                </div>
+            </div>
+
+            <!-- 조준 시퀀스 분석 패널 -->
+            <div class="panel">
+                <h2>🎯 조준 시퀀스 분석</h2>
+                <div class="chart-container">
+                    <canvas id="aimSequenceChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div id="aimPatternChart"></div>
+                </div>
+                <div class="video-section">
+                    <h3>📹 Counter-Strike 2 리플레이 분석</h3>
+                    <div class="video-controls">
+                        <div class="video-info">
+                            <span id="currentTick">Tick: -</span>
+                            <span id="currentTime">Time: -</span>
+                            <span id="suspicionLevel">의심도: -</span>
+                            <span id="videoFile">CS2 수정 버전</span>
+                        </div>
+                        <div class="video-player-container">
+                            <video id="replayVideo" controls width="100%" height="300">
+                                <source src="" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="tick-navigation">
+                            <button id="prevSuspiciousTick" class="nav-btn">⬅️ 이전 의심 구간</button>
+                            <button id="playPauseBtn" class="play-btn">▶️ 재생</button>
+                            <button id="nextSuspiciousTick" class="nav-btn">다음 의심 구간 ➡️</button>
+                        </div>
+                        <div class="suspicious-ticks-list">
+                            <h4>🚨 의심 구간 목록</h4>
+                            <div id="suspiciousTicksList" class="ticks-list">
+                                <!-- 동적으로 생성됨 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 의심 점수 분석 패널 -->
+            <div class="panel">
+                <h2>⚠️ 의심 점수 분석</h2>
+                <div class="suspicion-gauge">
+                    <div class="gauge">
+                        <div class="gauge-circle">
+                            <div class="gauge-inner" id="suspicionScore">0%</div>
+                        </div>
+                    </div>
+                    <div class="suspicion-level" id="suspicionLevel">
+                        분석 중...
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="suspicionChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="boxPlotChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 최종 프로파일링 결과 -->
+            <div class="panel">
+                <h2>🔍 최종 유저 프로파일링 결과</h2>
+                <div id="finalProfile">
+                    <!-- 동적으로 생성됨 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 실제 Excel 데이터 구조를 기반으로 한 샘플 데이터
+        const sampleData = {
+            users: [
+                { id: 0, game: "1_4", cheater: 0, kd: 1.2, headshotRate: 0.35, accuracy: 0.42, reactionTime: 180, 
+                  totalSequences: 12, suspicionScore: 0.15, seqGroups: [10091, 10092, 10093] },
+                { id: 1, game: "1_4", cheater: 1, kd: 3.8, headshotRate: 0.78, accuracy: 0.89, reactionTime: 45,
+                  totalSequences: 15, suspicionScore: 0.82, seqGroups: [10338, 10339, 10340] },
+                { id: 2, game: "1_4", cheater: 0, kd: 0.9, headshotRate: 0.28, accuracy: 0.31, reactionTime: 220,
+                  totalSequences: 8, suspicionScore: 0.12, seqGroups: [10145, 10146] },
+                { id: 3, game: "1_4", cheater: 0, kd: 1.5, headshotRate: 0.41, accuracy: 0.48, reactionTime: 165,
+                  totalSequences: 10, suspicionScore: 0.18, seqGroups: [10201, 10202, 10203] },
+                { id: 4, game: "1_4", cheater: 1, kd: 4.2, headshotRate: 0.82, accuracy: 0.91, reactionTime: 38,
+                  totalSequences: 18, suspicionScore: 0.88, seqGroups: [10456, 10457, 10458, 10459] },
+                { id: 5, game: "1_4", cheater: 0, kd: 1.1, headshotRate: 0.32, accuracy: 0.38, reactionTime: 195,
+                  totalSequences: 9, suspicionScore: 0.14, seqGroups: [10178, 10179] },
+                { id: 6, game: "1_4", cheater: 0, kd: 1.8, headshotRate: 0.45, accuracy: 0.52, reactionTime: 150,
+                  totalSequences: 11, suspicionScore: 0.22, seqGroups: [10234, 10235, 10236] },
+                { id: 7, game: "1_4", cheater: 0, kd: 1.3, headshotRate: 0.38, accuracy: 0.44, reactionTime: 175,
+                  totalSequences: 7, suspicionScore: 0.16, seqGroups: [10112, 10113] }
+            ],
+            aimSequences: {
+                0: generateRealisticAimSequence(0.1, 0.05, 3), // 정상적인 패턴
+                1: generateRealisticAimSequence(0.8, 0.02, 4), // 의심스러운 패턴
+                2: generateRealisticAimSequence(0.15, 0.08, 2), // 정상적인 패턴
+                3: generateRealisticAimSequence(0.12, 0.06, 3), // 정상적인 패턴
+                4: generateRealisticAimSequence(0.85, 0.01, 4), // 의심스러운 패턴
+                5: generateRealisticAimSequence(0.18, 0.07, 2), // 정상적인 패턴
+                6: generateRealisticAimSequence(0.14, 0.05, 3), // 정상적인 패턴
+                7: generateRealisticAimSequence(0.16, 0.06, 2)  // 정상적인 패턴
+            }
+        };
+
+        function generateRealisticAimSequence(suspicionLevel, noise, seqCount) {
+            const sequences = [];
+            
+            for (let seq = 0; seq < seqCount; seq++) {
+                const sequence = [];
+                const seriesLength = 20; // series_len에 해당
+                
+                for (let i = 0; i < seriesLength; i++) {
+                    if (suspicionLevel > 0.7) {
+                        // 의심스러운 패턴: 매우 정확한 직선 움직임 (에임봇 특징)
+                        const baseX = i * 1.2 + seq * 5;
+                        const baseY = i * 0.8 + seq * 3;
+                        
+                        sequence.push({
+                            x: baseX + (Math.random() - 0.5) * noise * 2,
+                            y: baseY + (Math.random() - 0.5) * noise * 2,
+                            z: Math.random() * noise * 0.5, // FPS에서 z는 거의 사용되지 않음
+                            tick: i,
+                            timestamp: 31121 + i + seq * 20
+                        });
+                    } else {
+                        // 정상적인 패턴: 자연스러운 인간의 움직임
+                        const humanX = Math.sin(i * 0.2 + seq * 0.5) * 8 + Math.sin(i * 0.1) * 3;
+                        const humanY = Math.cos(i * 0.15 + seq * 0.3) * 6 + Math.cos(i * 0.08) * 2;
+                        
+                        sequence.push({
+                            x: humanX + (Math.random() - 0.5) * noise * 8,
+                            y: humanY + (Math.random() - 0.5) * noise * 6,
+                            z: (Math.random() - 0.5) * 2,
+                            tick: i,
+                            timestamp: 31121 + i + seq * 20
+                        });
+                    }
+                }
+                
+                sequences.push({
+                    seqGroup: 10000 + seq * 100 + Math.floor(Math.random() * 50),
+                    data: sequence,
+                    seriesLength: seriesLength,
+                    startTime: 31121 + seq * 20,
+                    endTime: 31121 + seq * 20 + seriesLength
+                });
+            }
+            
+            return sequences;
+        }
+
+        function generateAimSequence(suspicionLevel, noise) {
+            // 기존 함수는 호환성을 위해 유지
+            const sequence = [];
+            for (let i = 0; i < 20; i++) {
+                if (suspicionLevel > 0.7) {
+                    sequence.push({
+                        x: i * 2 + Math.random() * noise * 10,
+                        y: i * 1.5 + Math.random() * noise * 10,
+                        z: Math.random() * noise * 5
+                    });
+                } else {
+                    sequence.push({
+                        x: Math.sin(i * 0.3) * 10 + Math.random() * 5,
+                        y: Math.cos(i * 0.2) * 8 + Math.random() * 4,
+                        z: Math.random() * 2
+                    });
+                }
+            }
+            return sequence;
+        }
+
+        let selectedUser = null;
+        let aimChart = null;
+        let suspicionChart = null;
+        let boxPlotChart = null;
+        let currentVideoTime = 0;
+        let suspiciousTicks = [];
+        let currentTickIndex = 0;
+
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUsers();
+        });
+
+        function loadUsers() {
+            const userGrid = document.getElementById('userGrid');
+            userGrid.innerHTML = '';
+
+            sampleData.users.forEach(user => {
+                const userCard = document.createElement('div');
+                userCard.className = `user-card ${user.cheater ? 'suspicious' : 'normal'}`;
+                userCard.onclick = () => selectUser(user.id);
+
+                userCard.innerHTML = `
+                    <div class="user-id">Player ${user.id}</div>
+                    <div class="user-status">${user.cheater ? '의심' : '정상'}</div>
+                `;
+
+                userGrid.appendChild(userCard);
+            });
+        }
+
+        function selectUser(userId) {
+            selectedUser = sampleData.users.find(u => u.id === userId);
+            console.log('User selected:', selectedUser);
+            
+            // 선택된 유저 카드 하이라이트
+            document.querySelectorAll('.user-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.target.closest('.user-card').classList.add('selected');
+
+            // 대시보드 표시
+            document.getElementById('dashboardContent').classList.add('active');
+            
+            // 데이터 업데이트
+            updateUserInfo();
+            updateFpsStats();
+            updateAimSequenceChart();
+            
+            // 의심도 분석 즉시 업데이트
+            setTimeout(() => {
+                updateSuspicionAnalysis();
+            }, 100);
+            
+            updateBoxPlot();
+            updateVideoSection();
+            updateFinalProfile();
+        }
+
+        function updateUserInfo() {
+            const userInfo = document.getElementById('userInfo');
+            userInfo.innerHTML = `
+                <div class="info-item">
+                    <div class="info-label">Player ID</div>
+                    <div class="info-value">${selectedUser.id}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">게임 ID</div>
+                    <div class="info-value">${selectedUser.game}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">플레이 날짜</div>
+                    <div class="info-value">${selectedUser.play_date || '2025-09-01'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">맵</div>
+                    <div class="info-value">${selectedUser.map || 'de_dust2'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">주 무기</div>
+                    <div class="info-value">${selectedUser.primary_weapon || 'AK-47'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">보조 무기</div>
+                    <div class="info-value">${selectedUser.secondary_weapon || 'Glock-18'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">총 시퀀스 수</div>
+                    <div class="info-value">${selectedUser.totalSequences || 0}개</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">시퀀스 그룹</div>
+                    <div class="info-value">${(selectedUser.seqGroups || []).join(', ')}</div>
+                </div>
+            `;
+        }
+
+        function updateFpsStats() {
+            const fpsStats = document.getElementById('fpsStats');
+            fpsStats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${selectedUser.kd}</div>
+                    <div class="stat-label">K/D 비율</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${(selectedUser.headshotRate * 100).toFixed(1)}%</div>
+                    <div class="stat-label">헤드샷 비율</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${selectedUser.reactionTime}ms</div>
+                    <div class="stat-label">평균 반응 속도</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${(selectedUser.accuracy * 100).toFixed(1)}%</div>
+                    <div class="stat-label">명중률</div>
+                </div>
+            `;
+        }
+
+        function updateAimSequenceChart() {
+            const ctx = document.getElementById('aimSequenceChart').getContext('2d');
+            
+            if (aimChart) {
+                aimChart.destroy();
+            }
+
+            const sequences = sampleData.aimSequences[selectedUser.id];
+            const firstSequence = sequences[0]; // 첫 번째 시퀀스 사용
+            const labels = Array.from({length: firstSequence.data.length}, (_, i) => `Tick ${i + 1}`);
+            
+            // 여러 시퀀스를 하나의 차트에 표시
+            const datasets = sequences.map((seq, index) => ({
+                label: `시퀀스 ${index + 1} (그룹 ${seq.seqGroup})`,
+                data: seq.data.map(s => s.x),
+                borderColor: `hsl(${index * 60}, 70%, 50%)`,
+                backgroundColor: `hsla(${index * 60}, 70%, 50%, 0.1)`,
+                tension: 0.1,
+                pointRadius: 3,
+                pointHoverRadius: 5
+            }));
+
+            // Y 좌표 데이터도 추가
+            const yDatasets = sequences.map((seq, index) => ({
+                label: `Y좌표 ${index + 1}`,
+                data: seq.data.map(s => s.y),
+                borderColor: `hsl(${index * 60 + 180}, 70%, 50%)`,
+                backgroundColor: `hsla(${index * 60 + 180}, 70%, 50%, 0.1)`,
+                tension: 0.1,
+                pointRadius: 3,
+                pointHoverRadius: 5
+            }));
+
+            aimChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [...datasets, ...yDatasets]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `조준 시퀀스 패턴 분석 (${sequences.length}개 시퀀스)`
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '좌표 값'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '시간 (Tick)'
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+
+            // 3D 조준 패턴 차트 (첫 번째 시퀀스만)
+            const trace = {
+                x: firstSequence.data.map(s => s.x),
+                y: firstSequence.data.map(s => s.y),
+                z: firstSequence.data.map(s => s.z),
+                mode: 'lines+markers',
+                type: 'scatter3d',
+                marker: {
+                    size: 5,
+                    color: firstSequence.data.map((_, i) => i),
+                    colorscale: selectedUser.cheater ? 'Reds' : 'Greens'
+                },
+                line: {
+                    color: selectedUser.cheater ? '#e74c3c' : '#27ae60',
+                    width: 3
+                },
+                name: `시퀀스 그룹 ${firstSequence.seqGroup}`
+            };
+
+            const layout = {
+                title: `3D 조준 패턴 시각화 (그룹 ${firstSequence.seqGroup})`,
+                scene: {
+                    xaxis: { title: 'X 좌표' },
+                    yaxis: { title: 'Y 좌표' },
+                    zaxis: { title: 'Z 좌표' }
+                },
+                margin: { t: 30, b: 20, l: 20, r: 20 },
+                height: 280
+            };
+
+            Plotly.newPlot('aimPatternChart', [trace], layout, {responsive: true});
+        }
+
+        function updateSuspicionAnalysis() {
+            console.log('updateSuspicionAnalysis called, selectedUser:', selectedUser);
+            
+            if (!selectedUser) {
+                console.log('No selectedUser, returning');
+                return;
+            }
+            
+            // 실제 의심 점수 사용
+            const suspicionScore = selectedUser.suspicionScore || 
+                (selectedUser.cheater ? Math.random() * 0.3 + 0.7 : Math.random() * 0.4 + 0.1);
+
+            console.log('suspicionScore:', suspicionScore);
+
+            // 의심 점수 업데이트
+            const suspicionScoreElement = document.getElementById('suspicionScore');
+            if (suspicionScoreElement) {
+                suspicionScoreElement.textContent = Math.round(suspicionScore * 100) + '%';
+                console.log('Updated suspicion score:', suspicionScoreElement.textContent);
+            }
+
+            // 의심 레벨 업데이트 - 강제로 실행
+            const suspicionLevel = document.getElementById('suspicionLevel');
+            console.log('suspicionLevel element:', suspicionLevel);
+            
+            if (suspicionLevel) {
+                // 클래스 초기화
+                suspicionLevel.className = 'suspicion-level';
+                
+                // 의심도에 따른 텍스트 설정
+                if (suspicionScore > 0.8) {
+                    suspicionLevel.classList.add('high');
+                    suspicionLevel.textContent = '🔴 강력 의심';
+                } else if (suspicionScore > 0.6) {
+                    suspicionLevel.classList.add('high');
+                    suspicionLevel.textContent = '🟠 높은 의심';
+                } else if (suspicionScore > 0.4) {
+                    suspicionLevel.classList.add('medium');
+                    suspicionLevel.textContent = '🟡 보통 의심';
+                } else if (suspicionScore > 0.2) {
+                    suspicionLevel.classList.add('medium');
+                    suspicionLevel.textContent = '🟢 낮은 의심';
+                } else {
+                    suspicionLevel.classList.add('low');
+                    suspicionLevel.textContent = '✅ 정상';
+                }
+                
+                console.log('Updated suspicion level:', suspicionLevel.textContent);
+            } else {
+                console.log('suspicionLevel element not found!');
+            }
+
+            // 의심 점수 분포 차트
+            const ctx = document.getElementById('suspicionChart').getContext('2d');
+            
+            if (suspicionChart) {
+                suspicionChart.destroy();
+            }
+
+            const allScores = sampleData.users.map(u => u.suspicionScore || 
+                (u.cheater ? Math.random() * 0.3 + 0.7 : Math.random() * 0.4 + 0.1)
+            );
+
+            // 현재 선택된 유저 강조
+            const currentUserIndex = sampleData.users.findIndex(u => u.id === selectedUser.id);
+
+            suspicionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sampleData.users.map(u => `Player ${u.id}`),
+                    datasets: [{
+                        label: '의심 점수',
+                        data: allScores,
+                        backgroundColor: allScores.map((score, i) => {
+                            if (i === currentUserIndex) return '#f39c12'; // 선택된 유저는 주황색
+                            return sampleData.users[i].cheater ? '#e74c3c' : '#27ae60';
+                        }),
+                        borderColor: allScores.map((score, i) => {
+                            if (i === currentUserIndex) return '#e67e22'; // 선택된 유저는 진한 주황색
+                            return sampleData.users[i].cheater ? '#c0392b' : '#229954';
+                        }),
+                        borderWidth: allScores.map((score, i) => i === currentUserIndex ? 4 : 2)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '전체 플레이어 의심 점수 비교'
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1,
+                            title: {
+                                display: true,
+                                text: '의심 점수 (0-1)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '플레이어 ID'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateBoxPlot() {
+            const ctx = document.getElementById('boxPlotChart').getContext('2d');
+            
+            if (boxPlotChart) {
+                boxPlotChart.destroy();
+            }
+
+            // 각 플레이어별 점수 분포 생성 (박스 플롯용)
+            const playerScores = {};
+            sampleData.users.forEach(user => {
+                const baseScore = user.suspicionScore || 
+                    (user.cheater ? Math.random() * 0.3 + 0.7 : Math.random() * 0.4 + 0.1);
+                
+                // 각 플레이어별로 여러 관찰값 생성 (박스 플롯용)
+                const scores = [];
+                for (let i = 0; i < 20; i++) {
+                    if (user.cheater) {
+                        // 의심 유저: 높은 점수 + 약간의 변동
+                        scores.push(baseScore + (Math.random() - 0.5) * 0.1);
+                    } else {
+                        // 정상 유저: 낮은 점수 + 약간의 변동
+                        scores.push(baseScore + (Math.random() - 0.5) * 0.05);
+                    }
+                }
+                playerScores[user.id] = scores;
+            });
+
+            // 박스 플롯 데이터 생성
+            const boxPlotData = [];
+            const labels = [];
+            
+            sampleData.users.forEach(user => {
+                const scores = playerScores[user.id];
+                scores.sort((a, b) => a - b);
+                
+                const q1 = scores[Math.floor(scores.length * 0.25)];
+                const median = scores[Math.floor(scores.length * 0.5)];
+                const q3 = scores[Math.floor(scores.length * 0.75)];
+                const min = Math.min(...scores);
+                const max = Math.max(...scores);
+                
+                // 이상치 계산 (1.5 * IQR 규칙)
+                const iqr = q3 - q1;
+                const lowerBound = q1 - 1.5 * iqr;
+                const upperBound = q3 + 1.5 * iqr;
+                const outliers = scores.filter(score => score < lowerBound || score > upperBound);
+                
+                boxPlotData.push({
+                    min: min,
+                    q1: q1,
+                    median: median,
+                    q3: q3,
+                    max: max,
+                    outliers: outliers
+                });
+                
+                labels.push(`Player ${user.id}`);
+            });
+
+            // 임계값 계산
+            const allScores = Object.values(playerScores).flat();
+            allScores.sort((a, b) => a - b);
+            
+            const p99Threshold = allScores[Math.floor(allScores.length * 0.99)];
+            const iqrThreshold = allScores[Math.floor(allScores.length * 0.75)] - allScores[Math.floor(allScores.length * 0.25)];
+            const meanThreshold = allScores.reduce((a, b) => a + b, 0) / allScores.length;
+            const stdThreshold = Math.sqrt(allScores.reduce((sq, n) => sq + Math.pow(n - meanThreshold, 2), 0) / allScores.length);
+            const threeStdThreshold = meanThreshold + 3 * stdThreshold;
+
+            // Chart.js로 박스 플롯 구현
+            const datasets = [];
+            
+            sampleData.users.forEach((user, index) => {
+                const data = boxPlotData[index];
+                const color = user.cheater ? '#ef4444' : '#22c55e';
+                
+                // 박스 플롯을 여러 선분으로 표현
+                datasets.push(
+                    // 최소값-최대값 선
+                    {
+                        label: `Player ${user.id} Range`,
+                        data: [{x: index, y: data.min}, {x: index, y: data.max}],
+                        type: 'line',
+                        borderColor: color,
+                        backgroundColor: 'transparent',
+                        pointRadius: 0,
+                        borderWidth: 1,
+                        showLine: true
+                    },
+                    // Q1-Q3 박스
+                    {
+                        label: `Player ${user.id} Box`,
+                        data: [
+                            {x: index - 0.2, y: data.q1},
+                            {x: index + 0.2, y: data.q1},
+                            {x: index + 0.2, y: data.q3},
+                            {x: index - 0.2, y: data.q3},
+                            {x: index - 0.2, y: data.q1}
+                        ],
+                        type: 'line',
+                        borderColor: color,
+                        backgroundColor: color + '20',
+                        pointRadius: 0,
+                        borderWidth: 2,
+                        fill: true,
+                        showLine: true
+                    },
+                    // 중앙값 선
+                    {
+                        label: `Player ${user.id} Median`,
+                        data: [{x: index - 0.2, y: data.median}, {x: index + 0.2, y: data.median}],
+                        type: 'line',
+                        borderColor: color,
+                        backgroundColor: 'transparent',
+                        pointRadius: 0,
+                        borderWidth: 3,
+                        showLine: true
+                    }
+                );
+                
+                // 이상치 추가
+                if (data.outliers.length > 0) {
+                    datasets.push({
+                        label: `Player ${user.id} Outliers`,
+                        data: data.outliers.map(outlier => ({x: index, y: outlier})),
+                        type: 'scatter',
+                        borderColor: color,
+                        backgroundColor: color,
+                        pointRadius: 4,
+                        borderWidth: 1,
+                        showLine: false
+                    });
+                }
+            });
+
+            // 임계값 선 추가
+            datasets.push(
+                {
+                    label: 'P99 Threshold',
+                    data: labels.map((_, i) => ({x: i, y: p99Threshold})),
+                    type: 'line',
+                    borderColor: '#ef4444',
+                    backgroundColor: 'transparent',
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    showLine: true
+                },
+                {
+                    label: 'IQR Threshold',
+                    data: labels.map((_, i) => ({x: i, y: iqrThreshold})),
+                    type: 'line',
+                    borderColor: '#22c55e',
+                    backgroundColor: 'transparent',
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    showLine: true
+                },
+                {
+                    label: '3STD Threshold',
+                    data: labels.map((_, i) => ({x: i, y: threeStdThreshold})),
+                    type: 'line',
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'transparent',
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    showLine: true
+                }
+            );
+
+            boxPlotChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Box Plot of Scores per Player Across Observations (Game Version: 1_4)'
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                filter: function(item) {
+                                    return item.text.includes('Threshold') || 
+                                           (item.text.includes('Player') && item.text.includes('Range'));
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            min: -0.5,
+                            max: sampleData.users.length - 0.5,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    return `Player ${Math.round(value)}`;
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Player ID'
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        },
+                        y: {
+                            min: 0,
+                            max: 1,
+                            ticks: {
+                                stepSize: 0.2
+                            },
+                            title: {
+                                display: true,
+                                text: 'Score'
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false
+                    }
+                }
+            });
+        }
+
+        function updateVideoSection() {
+            // 의심스러운 tick 생성
+            generateSuspiciousTicks();
+            
+            // 영상 소스 설정 (로컬 Counter-Strike 2 영상 사용)
+            const video = document.getElementById('replayVideo');
+            video.src = `Counter-Strike2_수정.mp4`;
+            
+            // 영상 로드 이벤트 추가
+            video.addEventListener('loadedmetadata', () => {
+                console.log('영상 로드 완료:', video.duration, '초');
+                // 영상이 로드되면 첫 번째 의심 구간으로 이동
+                if (suspiciousTicks.length > 0) {
+                    goToTick(0);
+                }
+            });
+            
+            // 영상 로드 오류 처리
+            video.addEventListener('error', (e) => {
+                console.error('영상 로드 오류:', e);
+                // 오류 시 기본 메시지 표시
+                const videoContainer = document.querySelector('.video-player-container');
+                videoContainer.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 300px; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; color: #64748b;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 2rem; margin-bottom: 8px;">📹</div>
+                            <div>영상을 로드할 수 없습니다</div>
+                            <div style="font-size: 0.875rem; margin-top: 4px;">Counter-Strike2_수정.mp4</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            // 이벤트 리스너 설정
+            setupVideoEventListeners();
+            
+            // 의심 구간 목록 업데이트
+            updateSuspiciousTicksList();
+        }
+
+        function generateSuspiciousTicks() {
+            suspiciousTicks = [];
+            const sequences = sampleData.aimSequences[selectedUser.id];
+            
+            sequences.forEach((seq, seqIndex) => {
+                seq.data.forEach((point, tickIndex) => {
+                    // 의심도 계산 (간단한 예시)
+                    const suspicionLevel = calculateTickSuspicion(point, selectedUser);
+                    
+                    if (suspicionLevel > 0.3) { // 임계값 0.3 이상
+                        suspiciousTicks.push({
+                            tick: tickIndex,
+                            sequence: seqIndex,
+                            time: point.timestamp || (31121 + tickIndex + seqIndex * 20),
+                            suspicionLevel: suspicionLevel,
+                            x: point.x,
+                            y: point.y,
+                            z: point.z
+                        });
+                    }
+                });
+            });
+            
+            // 의심도 순으로 정렬
+            suspiciousTicks.sort((a, b) => b.suspicionLevel - a.suspicionLevel);
+        }
+
+        function calculateTickSuspicion(point, user) {
+            // 간단한 의심도 계산 로직
+            let suspicion = 0;
+            
+            // X, Y 좌표의 변화량이 너무 정확하면 의심
+            const precision = Math.abs(point.x) + Math.abs(point.y);
+            if (precision < 0.1) suspicion += 0.3;
+            
+            // Z 좌표가 거의 변하지 않으면 의심 (FPS에서는 Z가 거의 사용되지 않음)
+            if (Math.abs(point.z) < 0.01) suspicion += 0.2;
+            
+            // 유저가 이미 의심 유저라면 기본 의심도 추가
+            if (user.cheater) suspicion += 0.4;
+            
+            return Math.min(suspicion, 1.0);
+        }
+
+        function setupVideoEventListeners() {
+            const video = document.getElementById('replayVideo');
+            const playPauseBtn = document.getElementById('playPauseBtn');
+            const prevBtn = document.getElementById('prevSuspiciousTick');
+            const nextBtn = document.getElementById('nextSuspiciousTick');
+            
+            // 재생/일시정지 버튼
+            playPauseBtn.addEventListener('click', () => {
+                if (video.paused) {
+                    video.play();
+                    playPauseBtn.textContent = '⏸️ 일시정지';
+                } else {
+                    video.pause();
+                    playPauseBtn.textContent = '▶️ 재생';
+                }
+            });
+            
+            // 이전 의심 구간
+            prevBtn.addEventListener('click', () => {
+                if (currentTickIndex > 0) {
+                    currentTickIndex--;
+                    goToTick(currentTickIndex);
+                }
+            });
+            
+            // 다음 의심 구간
+            nextBtn.addEventListener('click', () => {
+                if (currentTickIndex < suspiciousTicks.length - 1) {
+                    currentTickIndex++;
+                    goToTick(currentTickIndex);
+                }
+            });
+            
+            // 영상 시간 업데이트
+            video.addEventListener('timeupdate', () => {
+                updateVideoInfo();
+            });
+        }
+
+        function updateSuspiciousTicksList() {
+            const ticksList = document.getElementById('suspiciousTicksList');
+            ticksList.innerHTML = '';
+            
+            suspiciousTicks.forEach((tick, index) => {
+                const tickItem = document.createElement('div');
+                tickItem.className = 'tick-item';
+                if (index === currentTickIndex) {
+                    tickItem.classList.add('active');
+                }
+                
+                const suspicionClass = tick.suspicionLevel > 0.7 ? 'high' : 
+                                     tick.suspicionLevel > 0.4 ? 'medium' : 'low';
+                
+                tickItem.innerHTML = `
+                    <div class="tick-info">
+                        <div class="tick-number">Tick ${tick.tick}</div>
+                        <div class="tick-time">Time: ${tick.time}ms</div>
+                    </div>
+                    <div class="tick-suspicion ${suspicionClass}">
+                        ${Math.round(tick.suspicionLevel * 100)}%
+                    </div>
+                `;
+                
+                tickItem.addEventListener('click', () => {
+                    currentTickIndex = index;
+                    goToTick(index);
+                });
+                
+                ticksList.appendChild(tickItem);
+            });
+        }
+
+        function goToTick(index) {
+            if (index < 0 || index >= suspiciousTicks.length) return;
+            
+            const tick = suspiciousTicks[index];
+            const video = document.getElementById('replayVideo');
+            
+            // 영상 시간 계산 (tick을 초로 변환, 64 tick = 1초 가정)
+            const videoTime = tick.tick / 64;
+            video.currentTime = videoTime;
+            
+            // UI 업데이트
+            updateVideoInfo();
+            updateSuspiciousTicksList();
+            
+            // 현재 선택된 tick 하이라이트
+            document.querySelectorAll('.tick-item').forEach((item, i) => {
+                item.classList.toggle('active', i === index);
+            });
+        }
+
+        function updateVideoInfo() {
+            const video = document.getElementById('replayVideo');
+            const currentTick = document.getElementById('currentTick');
+            const currentTime = document.getElementById('currentTime');
+            const suspicionLevel = document.getElementById('suspicionLevel');
+            
+            if (suspiciousTicks.length > 0 && currentTickIndex < suspiciousTicks.length) {
+                const tick = suspiciousTicks[currentTickIndex];
+                currentTick.textContent = `Tick: ${tick.tick}`;
+                currentTime.textContent = `Time: ${Math.round(video.currentTime * 1000)}ms`;
+                suspicionLevel.textContent = `의심도: ${Math.round(tick.suspicionLevel * 100)}%`;
+            } else {
+                currentTick.textContent = 'Tick: -';
+                currentTime.textContent = 'Time: -';
+                suspicionLevel.textContent = '의심도: -';
+            }
+        }
+
+        function updateFinalProfile() {
+            const finalProfile = document.getElementById('finalProfile');
+            const suspicionScore = selectedUser.suspicionScore || 
+                (selectedUser.cheater ? Math.random() * 0.3 + 0.7 : Math.random() * 0.4 + 0.1);
+
+            // 퍼센타일 계산
+            const allScores = sampleData.users.map(u => u.suspicionScore || 
+                (u.cheater ? Math.random() * 0.3 + 0.7 : Math.random() * 0.4 + 0.1)
+            ).sort((a, b) => a - b);
+            
+            const percentile = Math.round((allScores.indexOf(suspicionScore) / (allScores.length - 1)) * 100);
+
+            finalProfile.innerHTML = `
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">최종 판단</div>
+                        <div class="info-value ${suspicionScore > 0.8 ? 'high' : suspicionScore > 0.6 ? 'high' : suspicionScore > 0.4 ? 'medium' : suspicionScore > 0.2 ? 'medium' : 'low'}">
+                            ${suspicionScore > 0.8 ? '🔴 강력 의심' : 
+                              suspicionScore > 0.6 ? '🟠 높은 의심' : 
+                              suspicionScore > 0.4 ? '🟡 보통 의심' : 
+                              suspicionScore > 0.2 ? '🟢 낮은 의심' : 
+                              '✅ 정상'}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">의심 점수</div>
+                        <div class="info-value">${Math.round(suspicionScore * 100)}% (상위 ${percentile}%)</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">분석된 시퀀스</div>
+                        <div class="info-value">${selectedUser.totalSequences || 0}개</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">분석 근거</div>
+                        <div class="info-value">
+                            ${suspicionScore > 0.8 ? 
+                                `• 비정상적으로 높은 정확도 (${(selectedUser.accuracy * 100).toFixed(1)}%)<br>• 기계적인 조준 패턴 감지<br>• 비정상적인 반응 속도 (${selectedUser.reactionTime}ms)<br>• 매우 높은 헤드샷 비율 (${(selectedUser.headshotRate * 100).toFixed(1)}%)` :
+                                suspicionScore > 0.6 ?
+                                `• 높은 정확도 (${(selectedUser.accuracy * 100).toFixed(1)}%)<br>• 의심스러운 조준 패턴 감지<br>• 빠른 반응 속도 (${selectedUser.reactionTime}ms)<br>• 높은 헤드샷 비율 (${(selectedUser.headshotRate * 100).toFixed(1)}%)` :
+                                suspicionScore > 0.4 ?
+                                `• 약간 높은 정확도 (${(selectedUser.accuracy * 100).toFixed(1)}%)<br>• 일부 비정상적 패턴 감지<br>• 평균 반응 속도 (${selectedUser.reactionTime}ms)<br>• 정상적인 헤드샷 비율 (${(selectedUser.headshotRate * 100).toFixed(1)}%)` :
+                                suspicionScore > 0.2 ?
+                                `• 정상적인 정확도 (${(selectedUser.accuracy * 100).toFixed(1)}%)<br>• 대부분 자연스러운 패턴<br>• 일반적인 반응 속도 (${selectedUser.reactionTime}ms)<br>• 정상적인 헤드샷 비율 (${(selectedUser.headshotRate * 100).toFixed(1)}%)` :
+                                `• 정상적인 통계 지표<br>• 자연스러운 조준 패턴<br>• 일반적인 반응 속도 (${selectedUser.reactionTime}ms)<br>• 정상적인 헤드샷 비율 (${(selectedUser.headshotRate * 100).toFixed(1)}%)`
+                            }
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">추천 조치</div>
+                        <div class="info-value">
+                            ${suspicionScore > 0.8 ? 
+                                '• 즉시 추가 조사 필요<br>• 리플레이 수동 검증<br>• 관리자 알림 발송<br>• 임시 제재 고려' :
+                                suspicionScore > 0.6 ?
+                                '• 우선순위 조사 필요<br>• 리플레이 상세 검토<br>• 관리자 알림<br>• 지속적 모니터링' :
+                                suspicionScore > 0.4 ?
+                                '• 추가 모니터링 필요<br>• 향후 경기 관찰<br>• 패턴 변화 추적' :
+                                suspicionScore > 0.2 ?
+                                '• 정기적 모니터링<br>• 패턴 변화 관찰<br>• 정상 활동 확인' :
+                                '• 정상 플레이어로 판단<br>• 추가 모니터링 불필요<br>• 정상적인 게임 활동'
+                            }
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">분석 일시</div>
+                        <div class="info-value">${new Date().toLocaleString('ko-KR')}</div>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
