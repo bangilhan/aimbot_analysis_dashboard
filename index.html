@@ -1445,9 +1445,9 @@
             // 의심스러운 tick 생성
             generateSuspiciousTicks();
             
-            // 영상 소스 설정 (로컬 Counter-Strike 2 영상 사용)
+            // 영상 소스 설정 (샘플 영상 사용 - Vercel 배포용)
             const video = document.getElementById('replayVideo');
-            video.src = `Counter-Strike2_수정.mp4`;
+            video.src = `https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4`;
             
             // 영상 로드 이벤트 추가
             video.addEventListener('loadedmetadata', () => {
