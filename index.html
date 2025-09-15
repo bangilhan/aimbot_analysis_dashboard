@@ -1445,9 +1445,9 @@
             // 의심스러운 tick 생성
             generateSuspiciousTicks();
             
-            // 영상 소스 설정 (샘플 영상 사용 - Vercel 배포용)
+            // 영상 소스 설정 (안정적인 샘플 영상 사용)
             const video = document.getElementById('replayVideo');
-            video.src = `https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4`;
+            video.src = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`;
             
             // 영상 로드 이벤트 추가
             video.addEventListener('loadedmetadata', () => {
@@ -1468,7 +1468,8 @@
                         <div style="text-align: center;">
                             <div style="font-size: 2rem; margin-bottom: 8px;">📹</div>
                             <div>영상을 로드할 수 없습니다</div>
-                            <div style="font-size: 0.875rem; margin-top: 4px;">Counter-Strike2_수정.mp4</div>
+                            <div style="font-size: 0.875rem; margin-top: 4px;">샘플 영상: BigBuckBunny.mp4</div>
+                            <div style="font-size: 0.75rem; margin-top: 4px; color: #94a3b8;">영상 로드 실패 - 네트워크 문제일 수 있습니다</div>
                         </div>
                     </div>
                 `;
