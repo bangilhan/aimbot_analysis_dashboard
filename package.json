@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "FPS Aimbot Suspect Profiling Dashboard",
   "main": "index.html",
+  "homepage": ".",
   "scripts": {
     "start": "npx http-server . -p 3000",
     "build": "echo 'No build step required for static HTML'",
